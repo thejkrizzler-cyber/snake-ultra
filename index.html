@@ -12,9 +12,7 @@ canvas{background:black;border:3px solid #555;display:none;margin:auto;margin-to
 </style>
 </head>
 <body>
-
 <h1>🐍 Snake Ultra V3</h1>
-
 <div id="menu">
 <h2>Main Menu</h2>
 <p>Select Mode:</p>
@@ -25,13 +23,11 @@ canvas{background:black;border:3px solid #555;display:none;margin:auto;margin-to
 <button onclick="startGame('reverse')">Reverse Controls</button>
 <button onclick="startGame('chaos')">Chaos</button>
 <button onclick="startGame('endless')">Endless</button>
-
 <br><br>
 <button onclick="toggleTheme()">Change Theme</button>
 <button onclick="toggleMobileControls()">Toggle Mobile Controls</button>
 <p id="highScore"></p>
 </div>
-
 <canvas id="game" width="500" height="500"></canvas>
 <div id="mobileControls">
 <button class="controlBtn" onclick="mobileDir('up',1)">↑</button><br>
@@ -44,9 +40,7 @@ canvas{background:black;border:3px solid #555;display:none;margin:auto;margin-to
 <button class="controlBtn" onclick="mobileDir('down',2)">↓ P2</button>
 <button class="controlBtn" onclick="mobileDir('right',2)">→ P2</button>
 </div>
-
 <p id="scoreDisplay"></p>
-
 <script>
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
@@ -59,42 +53,83 @@ let score=0,high=JSON.parse(localStorage.getItem("snakeHigh"))||0;
 let mode="classic",paused=false,theme=0,god=false,walls=[],bossSnake=null;
 let mobileVisible=false;
 
-// sounds
-const eatSound=new Audio('https://freesound.org/data/previews/341/341695_6260062-lq.mp3');
-const powerSound=new Audio('https://freesound.org/data/previews/198/198841_2859977-lq.mp3');
-const gameOverSound=new Audio('https://freesound.org/data/previews/353/353912_5121236-lq.mp3');
+// Embedded sounds as Base64
+const eatSound=new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEA...');
+const powerSound=new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEA...');
+const gameOverSound=new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEA...');
 
 document.getElementById("highScore").innerText="High Score: "+high;
 
-function rand(){return{x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};}
-function spawnApples(){apples=[];for(let i=0;i<appleCount;i++)apples.push(rand());}
-function spawnPower(){if(Math.random()<0.2)powerups.push({...rand(),type:["speed","shield","mega"][Math.floor(Math.random()*3)]});}
-function generateWalls(){walls=[];if(mode==="endless")return;for(let i=0;i<30;i++)walls.push(rand());}
+function rand(){return{x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)}}
+function spawnApples(){apples=[];for(let i=0;i<appleCount;i++)apples.push(rand())}
+function spawnPower(){if(Math.random()<0.2)powerups.push({...rand(),type:["speed","shield","mega"][Math.floor(Math.random()*3)]})}
+function generateWalls(){walls=[];if(mode==="endless")return;for(let i=0;i<30;i++)walls.push(rand())}
 
-function startGame(m){
-mode=m;
-document.getElementById("menu").style.display="none";
-canvas.style.display="block";
-if(mobileVisible)document.getElementById("mobileControls").style.display="block";
-reset();
-}
+function startGame(m){mode=m;document.getElementById("menu").style.display="none";canvas.style.display="block";if(mobileVisible)document.getElementById("mobileControls").style.display="block";reset();}
 
 function reset(){
 snake=[{x:10,y:10}];
 snake2=[{x:15,y:15}];
 aiSnake=[{x:5,y:5}];
 dir={x:1,y:0};dir2={x:-1,y:0};
-score=0;
-spawnApples();
-generateWalls();
+score=0;spawnApples();generateWalls();
 bossSnake={x:cols-5,y:rows-5,dx:1,dy:0};
 }
 
 function moveSnake(snakeObj,dirObj){
 let head={x:snakeObj[0].x+dirObj.x,y:snakeObj[0].y+dirObj.y};
-if(head.x<0||head.y<0||head.x>=cols||head.y>=rows){if(god && mode!=="multiplayer"){head.x=(head.x+cols)%cols;head.y=(head.y+rows)%rows;}else{return gameOver();}}
+if(head.x<0||head.y<0||head.x>=cols||head.y>=rows){if(god && mode!="multiplayer"){head.x=(head.x+cols)%cols;head.y=(head.y+rows)%rows;}else{return gameOver();}}
 for(let w of walls){if(!god && head.x===w.x && head.y===w.y)return gameOver();}
 for(let part of snakeObj){if(!god && head.x===part.x && head.y===part.y)return gameOver();}
 snakeObj.unshift(head);
 let ate=false;
-for(let i=0;i<apples.length;i++){if(head.x===apples[i].x && head.y===apples
+for(let i=0;i<apples.length;i++){if(head.x===apples[i].x && head.y===apples[i].y){score++;apples[i]=rand();spawnPower();eatSound.play();ate=true;}}
+for(let i=0;i<powerups.length;i++){
+let p=powerups[i];
+if(head.x===p.x && head.y===p.y){
+if(p.type==="mega"){for(let j=0;j<5;j++)snakeObj.push({...snakeObj[snakeObj.length-1]});}
+if(p.type==="speed"){speed=50;setTimeout(()=>speed=100,4000);}
+powerups.splice(i,1);powerSound.play();
+}
+}
+if(!ate)snakeObj.pop();
+}
+
+function moveAI(){if(mode!=="ai")return;let target=apples[0];let head=aiSnake[0];let dx=Math.sign(target.x-head.x);let dy=Math.sign(target.y-head.y);aiSnake.unshift({x:(head.x+dx+cols)%cols,y:(head.y+dy+rows)%rows});aiSnake.pop();}
+
+function moveBoss(){if(!bossSnake)return;let target=snake[0];if(mode==="multiplayer" && snake2.length>0){target=snake2[0];}let dx=Math.sign(target.x-bossSnake.x);let dy=Math.sign(target.y-bossSnake.y);bossSnake.x=(bossSnake.x+dx+cols)%cols;bossSnake.y=(bossSnake.y+dy+rows)%rows;}
+
+function draw(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle="gray";walls.forEach(w=>ctx.fillRect(w.x*grid,w.y*grid,grid,grid));
+ctx.fillStyle="red";apples.forEach(a=>ctx.fillRect(a.x*grid,a.y*grid,grid,grid));
+powerups.forEach(p=>{ctx.fillStyle=p.type==="speed"?"yellow":p.type==="shield"?"cyan":"purple";ctx.fillRect(p.x*grid,p.y*grid,grid,grid);});
+snake.forEach((s,i)=>{ctx.fillStyle=(theme===2?"lime":i===0?"lime":"green");if(mode==="chaos")ctx.fillStyle=`hsl(${(Date.now()/10+i*20)%360},100%,50%)`;ctx.fillRect(s.x*grid,s.y*grid,grid,grid);});
+if(mode==="multiplayer")snake2.forEach((s,i)=>{ctx.fillStyle=i===0?"orange":"yellow";ctx.fillRect(s.x*grid,s.y*grid,grid,grid);});
+if(mode==="ai"){ctx.fillStyle="blue";aiSnake.forEach(s=>ctx.fillRect(s.x*grid,s.y*grid,grid,grid));}
+ctx.fillStyle="purple";if(bossSnake)ctx.fillRect(bossSnake.x*grid,bossSnake.y*grid,grid,grid);
+ctx.fillStyle="white";ctx.fillText("Score: "+score,10,20);ctx.fillText("Mode: "+mode,10,40);ctx.fillText("God: "+(god && mode!=="multiplayer"?"ON":"OFF"),10,60);
+if(score>high){high=score;localStorage.setItem("snakeHigh",high);}}
+
+function game(){if(paused)return;moveSnake(snake,dir);if(mode==="multiplayer")moveSnake(snake2,dir2);moveAI();moveBoss();draw();}
+
+function gameOver(){gameOverSound.play();alert("Game Over! Score: "+score);reset();}
+
+let speed=100;setInterval(game,speed);
+
+document.addEventListener("keydown",e=>{
+let k=e.key.toLowerCase();
+if(k==="w")dir={x:0,y:-1};if(k==="s")dir={x:0,y:1};if(k==="a")dir={x:-1,y:0};if(k==="d")dir={x:1,y:0};
+if(e.key==="ArrowUp")dir2={x:0,y:-1};if(e.key==="ArrowDown")dir2={x:0,y:1};if(e.key==="ArrowLeft")dir2={x:-1,y:0};if(e.key==="ArrowRight")dir2={x:1,y:0};
+if(k==="p")paused=!paused;if(k==="g" && mode!=="multiplayer")god=!god;
+});
+
+function mobileDir(direction,player){
+if(player===1){if(direction==="up")dir={x:0,y:-1};if(direction==="down")dir={x:0,y:1};if(direction==="left")dir={x:-1,y:0};if(direction==="right")dir={x:1,y:0};}
+else if(player===2){if(direction==="up")dir2={x:0,y:-1};if(direction==="down")dir2={x:0,y:1};if(direction==="left")dir2={x:-1,y:0};if(direction==="right")dir2={x:1,y:0};}}
+
+function toggleTheme(){theme++;if(theme>2)theme=0;}
+function toggleMobileControls(){mobileVisible=!mobileVisible;document.getElementById("mobileControls").style.display=mobileVisible?"block":"none";}
+</script>
+</body>
+</html>
