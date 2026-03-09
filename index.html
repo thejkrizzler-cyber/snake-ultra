@@ -1,311 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Snake Ultra</title>
-
+<title>Snake Ultra V3</title>
 <style>
-
-body{
-background:#111;
-color:white;
-font-family:sans-serif;
-text-align:center;
-margin:0;
-}
-
-#menu{
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-background:#222;
-padding:30px;
-border-radius:10px;
-}
-
-button{
-padding:10px 18px;
-margin:6px;
-font-size:16px;
-cursor:pointer;
-}
-
-canvas{
-background:black;
-border:3px solid #555;
-display:none;
-margin:auto;
-margin-top:40px;
-}
-
+body{background:#111;color:white;font-family:sans-serif;text-align:center;margin:0;}
+#menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:30px;border-radius:10px;}
+button{padding:10px 18px;margin:6px;font-size:16px;cursor:pointer;}
+canvas{background:black;border:3px solid #555;display:none;margin:auto;margin-top:40px;}
+#mobileControls{display:none;position:fixed;bottom:20px;width:100%;text-align:center;}
+.controlBtn{padding:20px 25px;margin:2px;font-size:20px;opacity:0.7;}
 </style>
-
 </head>
-
 <body>
 
-<h1>🐍 Snake Ultra</h1>
+<h1>🐍 Snake Ultra V3</h1>
 
 <div id="menu">
-
 <h2>Main Menu</h2>
-
+<p>Select Mode:</p>
 <button onclick="startGame('classic')">Classic</button>
 <button onclick="startGame('ai')">AI Mode</button>
 <button onclick="startGame('multiplayer')">2 Player</button>
+<button onclick="startGame('speed')">Speed</button>
+<button onclick="startGame('reverse')">Reverse Controls</button>
+<button onclick="startGame('chaos')">Chaos</button>
+<button onclick="startGame('endless')">Endless</button>
 
 <br><br>
-
 <button onclick="toggleTheme()">Change Theme</button>
-
+<button onclick="toggleMobileControls()">Toggle Mobile Controls</button>
 <p id="highScore"></p>
-
 </div>
 
 <canvas id="game" width="500" height="500"></canvas>
+<div id="mobileControls">
+<button class="controlBtn" onclick="mobileDir('up',1)">↑</button><br>
+<button class="controlBtn" onclick="mobileDir('left',1)">←</button>
+<button class="controlBtn" onclick="mobileDir('down',1)">↓</button>
+<button class="controlBtn" onclick="mobileDir('right',1)">→</button>
+<br>
+<button class="controlBtn" onclick="mobileDir('up',2)">↑ P2</button><br>
+<button class="controlBtn" onclick="mobileDir('left',2)">← P2</button>
+<button class="controlBtn" onclick="mobileDir('down',2)">↓ P2</button>
+<button class="controlBtn" onclick="mobileDir('right',2)">→ P2</button>
+</div>
+
+<p id="scoreDisplay"></p>
 
 <script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const grid=20,cols=canvas.width/grid,rows=canvas.height/grid;
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+let snake,snake2,aiSnake;
+let dir={x:1,y:0},dir2={x:-1,y:0};
+let apples=[],appleCount=1,powerups=[];
+let score=0,high=JSON.parse(localStorage.getItem("snakeHigh"))||0;
+let mode="classic",paused=false,theme=0,god=false,walls=[],bossSnake=null;
+let mobileVisible=false;
 
-const grid=20
-const cols=canvas.width/grid
-const rows=canvas.height/grid
+// sounds
+const eatSound=new Audio('https://freesound.org/data/previews/341/341695_6260062-lq.mp3');
+const powerSound=new Audio('https://freesound.org/data/previews/198/198841_2859977-lq.mp3');
+const gameOverSound=new Audio('https://freesound.org/data/previews/353/353912_5121236-lq.mp3');
 
-let snake
-let snake2
-let aiSnake
+document.getElementById("highScore").innerText="High Score: "+high;
 
-let dir={x:1,y:0}
-let dir2={x:-1,y:0}
-
-let apples=[]
-let appleCount=1
-
-let score=0
-let high=localStorage.getItem("snakeHigh")||0
-
-let mode="classic"
-let paused=false
-let theme=0
-
-document.getElementById("highScore").innerText="High Score: "+high
-
-function rand(){
-
-return{
-x:Math.floor(Math.random()*cols),
-y:Math.floor(Math.random()*rows)
-}
-
-}
-
-function spawnApples(){
-
-apples=[]
-
-for(let i=0;i<appleCount;i++){
-
-apples.push(rand())
-
-}
-
-}
+function rand(){return{x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};}
+function spawnApples(){apples=[];for(let i=0;i<appleCount;i++)apples.push(rand());}
+function spawnPower(){if(Math.random()<0.2)powerups.push({...rand(),type:["speed","shield","mega"][Math.floor(Math.random()*3)]});}
+function generateWalls(){walls=[];if(mode==="endless")return;for(let i=0;i<30;i++)walls.push(rand());}
 
 function startGame(m){
-
-mode=m
-
-document.getElementById("menu").style.display="none"
-canvas.style.display="block"
-
-reset()
-
+mode=m;
+document.getElementById("menu").style.display="none";
+canvas.style.display="block";
+if(mobileVisible)document.getElementById("mobileControls").style.display="block";
+reset();
 }
 
 function reset(){
-
-snake=[{x:10,y:10}]
-snake2=[{x:15,y:15}]
-aiSnake=[{x:5,y:5}]
-
-dir={x:1,y:0}
-dir2={x:-1,y:0}
-
-score=0
-
-spawnApples()
-
+snake=[{x:10,y:10}];
+snake2=[{x:15,y:15}];
+aiSnake=[{x:5,y:5}];
+dir={x:1,y:0};dir2={x:-1,y:0};
+score=0;
+spawnApples();
+generateWalls();
+bossSnake={x:cols-5,y:rows-5,dx:1,dy:0};
 }
 
-function moveSnake(snake,dir){
-
-let head={
-x:snake[0].x+dir.x,
-y:snake[0].y+dir.y
-}
-
-if(head.x<0||head.y<0||head.x>=cols||head.y>=rows){
-
-gameOver()
-return
-
-}
-
-snake.unshift(head)
-
-let ate=false
-
-for(let i=0;i<apples.length;i++){
-
-if(head.x===apples[i].x&&head.y===apples[i].y){
-
-score++
-
-apples[i]=rand()
-
-ate=true
-
-}
-
-}
-
-if(!ate) snake.pop()
-
-}
-
-function moveAI(){
-
-if(mode!=="ai") return
-
-let target=apples[0]
-
-let head=aiSnake[0]
-
-let dx=Math.sign(target.x-head.x)
-let dy=Math.sign(target.y-head.y)
-
-aiSnake.unshift({
-x:(head.x+dx+cols)%cols,
-y:(head.y+dy+rows)%rows
-})
-
-aiSnake.pop()
-
-}
-
-function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height)
-
-if(theme===1) canvas.style.background="#000"
-if(theme===2) canvas.style.background="#222"
-
-ctx.fillStyle="red"
-
-apples.forEach(a=>{
-
-ctx.fillRect(a.x*grid,a.y*grid,grid,grid)
-
-})
-
-snake.forEach((s,i)=>{
-
-ctx.fillStyle=i==0?"lime":"green"
-
-ctx.fillRect(s.x*grid,s.y*grid,grid,grid)
-
-})
-
-if(mode==="multiplayer"){
-
-snake2.forEach((s,i)=>{
-
-ctx.fillStyle=i==0?"orange":"yellow"
-
-ctx.fillRect(s.x*grid,s.y*grid,grid,grid)
-
-})
-
-}
-
-if(mode==="ai"){
-
-ctx.fillStyle="blue"
-
-aiSnake.forEach(s=>{
-
-ctx.fillRect(s.x*grid,s.y*grid,grid,grid)
-
-})
-
-}
-
-ctx.fillStyle="white"
-
-ctx.fillText("Score: "+score,10,20)
-
-}
-
-function game(){
-
-if(paused) return
-
-moveSnake(snake,dir)
-
-if(mode==="multiplayer") moveSnake(snake2,dir2)
-
-moveAI()
-
-draw()
-
-}
-
-function gameOver(){
-
-alert("Game Over! Score: "+score)
-
-if(score>high){
-
-high=score
-localStorage.setItem("snakeHigh",high)
-
-}
-
-location.reload()
-
-}
-
-function toggleTheme(){
-
-theme++
-
-if(theme>2) theme=0
-
-}
-
-setInterval(game,100)
-
-document.addEventListener("keydown",e=>{
-
-let k=e.key.toLowerCase()
-
-if(k==="w") dir={x:0,y:-1}
-if(k==="s") dir={x:0,y:1}
-if(k==="a") dir={x:-1,y:0}
-if(k==="d") dir={x:1,y:0}
-
-if(e.key==="ArrowUp") dir2={x:0,y:-1}
-if(e.key==="ArrowDown") dir2={x:0,y:1}
-if(e.key==="ArrowLeft") dir2={x:-1,y:0}
-if(e.key==="ArrowRight") dir2={x:1,y:0}
-
-if(k==="p") paused=!paused
-
-})
-
-</script>
-
-</body>
-</html>
+function moveSnake(snakeObj,dirObj){
+let head={x:snakeObj[0].x+dirObj.x,y:snakeObj[0].y+dirObj.y};
+if(head.x<0||head.y<0||head.x>=cols||head.y>=rows){if(god && mode!=="multiplayer"){head.x=(head.x+cols)%cols;head.y=(head.y+rows)%rows;}else{return gameOver();}}
+for(let w of walls){if(!god && head.x===w.x && head.y===w.y)return gameOver();}
+for(let part of snakeObj){if(!god && head.x===part.x && head.y===part.y)return gameOver();}
+snakeObj.unshift(head);
+let ate=false;
+for(let i=0;i<apples.length;i++){if(head.x===apples[i].x && head.y===apples
